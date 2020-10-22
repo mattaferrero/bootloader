@@ -21,6 +21,8 @@
 
 %define BOOTABLE	0xaa55
 
+stage1:
+
 .initialization:
 
 ; We will first zero out all segment registers with the exception of CS and DS, which will be

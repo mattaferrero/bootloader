@@ -21,7 +21,9 @@
 
 %define QUERY_MAP_MAGIC_NUM	0x534D415
 %define QUERY_MAP_FUNCTION	0xE820
-%define QUERY_MAP_STRUCT_SIZE	24		; 24 bytes per entry.
+%define QUERY_MAP_STRUCT_SIZE	24			; 24 bytes per entry.
+	
+stage2:
 
 .check_a20:
 
@@ -44,23 +46,23 @@
 	mov cx, [gs:WRAP_OFFSET]
 	cmp ax, cx
 
-je .you_cannot_be_serious			; IT BELONGS IN A MUSEUM (so do I for that matter).
-jne .GDT_table_code
+	je .you_cannot_be_serious			; IT BELONGS IN A MUSEUM (so do I for that matter).
+	jne .GDT_table_code
 
 
 ; Testing to see if we can print stuff out.
 
-; .you_cannot_be_serious:
+.you_cannot_be_serious:
 
-; mov al, 0x000A
-; mov bh, 0
-; mov bl, 0x000F
-; mov cx, 1
+mov al, 0x000A
+mov bh, 0
+mov bl, 0x000F
+mov cx, 1
 
-; mov ah, 0x0a
+mov ah, 0x0a
 
-; int 0x10
-; hlt	<-- needs to be shutdown code
+int 0x10
+hlt	; <-- needs to be shutdown code
 
 .GDT_table_code:
 
@@ -69,10 +71,9 @@ jne .GDT_table_code
 ; only need 3 entries here: null start, cs and ds. Each entry is fairly complex due
 ; to broken fields. See page 108 of the Intel 80386 Programmer's Reference Manual.
 
-	mov ax, .GDT_LOAD
-	LGDT [ax]				; LGDT takes our structure offset as it's only arg.
+	lgdt [.GDT_LOAD]			; LGDT takes our structure offset as it's only arg.
 
-jmp .memory_map
+	jmp .memory_map
 
 .GDT_table:
 
@@ -121,7 +122,7 @@ jmp .memory_map
 
 	mov cx, 0x2000
 	mov es, cx
-	mov di	0x0000				; We will start at offset 0x0000 in segment 0x2000.
+	mov di,	0x0000				; We will start at offset 0x0000 in segment 0x2000.
 
 	mov cx, QUERY_MAP_STRUCT_SIZE		; Minimum size 20 bytes.
 	mov edx, QUERY_MAP_MAGIC_NUM		; BIOS signature 'SMAP'. Verifies caller requests system map.
@@ -142,7 +143,7 @@ jmp .memory_map
 
 .memory_map2:
 
-	mov ax, QUERY_MAP_MAGIC_NUM
+	mov eax, QUERY_MAP_MAGIC_NUM
 	add di, 24				; Incrementing our pointer by 24 bytes
 	mov cx, QUERY_MAP_STRUCT_SIZE
 	int 0x15
@@ -167,5 +168,5 @@ jmp .memory_map
 	mov dh, 0
 	mov dl, 0
 	mov bp, 0
-	int 0x13				; This should print out the first 24 bytes of our memory map as a string
+	int 0x10				; This should print out the first 24 bytes of our memory map as a string
 						; of ASCII characters.
