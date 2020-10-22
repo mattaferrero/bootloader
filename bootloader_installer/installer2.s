@@ -154,4 +154,18 @@ jmp .memory_map
 	jne .memory_map2
 	je .memory_map_print			; I know it's redundant, sue me. I've got bytes. I've got bytes for days.
 
+; This code is CURRENTLY BEING TESTED. I don't know if this is the best way to print to screen.
+; This code section MAY CHANGE IN THE FUTURE.
+
 .memory_map_print:
+
+	mov ah, 0x13
+	mov al, 0
+	mov bh, 0
+	mov bl, 0xF
+	mov cx, 24
+	mov dh, 0
+	mov dl, 0
+	mov bp, 0
+	int 0x13				; This should print out the first 24 bytes of our memory map as a string
+						; of ASCII characters.

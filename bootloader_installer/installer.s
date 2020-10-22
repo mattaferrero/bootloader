@@ -17,7 +17,7 @@
 %define START_SECTOR	0x2
 %define DRIVE_NUM	0x80
 
-% Section defining our magic boot number
+; Section defining our magic boot number
 
 %define BOOTABLE	0xaa55
 
