@@ -21,9 +21,8 @@
 
 %define BOOTABLE	0xaa55
 
-stage1:
 
-.initialization:
+initialization:
 
 ; We will first zero out all segment registers with the exception of CS and DS, which will be
 ; set later for easier offset calculations. SS -must- be set.
@@ -34,7 +33,7 @@ stage1:
 	mov es, ax
 	mov ss, ax
 
-.load_stage2:
+load_stage2:
 
 ; We are using BIOS low level disk services interrupt 13h, to read in stage2 of the bootloader
 ; into memory. BIOS interrupt 13h's argument ah is the specific read command, and in our case
@@ -63,7 +62,5 @@ stage1:
 
 	jmp 0x1000:0x0000		; Implicitly setting CS to segment 0x1000.
 
-.set_bootable_num:
-
-	times 510-($-$$) db 0           ; Padding to byte 510
-	dw BOOTABLE                     ; BIOS scans for this boot signature before loading the MBR.
+set_bootable_num:
+	times 446-($-$$) db 0		; Padding to byte 446. fdisk should be run to set partition table and bootnumber.

@@ -15,17 +15,16 @@
 ; correspond directly to the fields they represent (see page 108 of 80386 manual).
 
 %define GDT_TABLE_SIZE		dw 0x18
-%define GDT_TABLE_OFFSET	dd .GDT_table
+%define GDT_TABLE_OFFSET	dd GDT_table
 
 ; This section defines our macros for use in the memory map detection code.
 
-%define QUERY_MAP_MAGIC_NUM	0x534D415
+%define QUERY_MAP_MAGIC_NUM	0x534D4150
 %define QUERY_MAP_FUNCTION	0xE820
 %define QUERY_MAP_STRUCT_SIZE	24			; 24 bytes per entry.
 	
-stage2:
 
-.check_a20:
+check_a20:
 
 ; This portion of code specifically deals with checking and enabling the a20 line. 
 ; Realistically, the a20 line should be enabled with a classical BIOS by default.
@@ -46,13 +45,13 @@ stage2:
 	mov cx, [gs:WRAP_OFFSET]
 	cmp ax, cx
 
-	je .you_cannot_be_serious			; IT BELONGS IN A MUSEUM (so do I for that matter).
-	jne .GDT_table_code
+	je you_cannot_be_serious			; IT BELONGS IN A MUSEUM (so do I for that matter).
+	jne GDT_table_code
 
 
 ; Testing to see if we can print stuff out.
 
-.you_cannot_be_serious:
+you_cannot_be_serious:
 
 mov al, 0x000A
 mov bh, 0
@@ -64,18 +63,18 @@ mov ah, 0x0a
 int 0x10
 hlt	; <-- needs to be shutdown code
 
-.GDT_table_code:
+GDT_table_code:
 
 ; Here we set the Global Descriptor Table entries, as well as the GDT entry point.
 ; The GDT entries are all 8 bytes each, with a maximum of 8,192 entries. We really
 ; only need 3 entries here: null start, cs and ds. Each entry is fairly complex due
 ; to broken fields. See page 108 of the Intel 80386 Programmer's Reference Manual.
 
-	lgdt [.GDT_LOAD]			; LGDT takes our structure offset as it's only arg.
+	lgdt [GDT_LOAD]			; LGDT takes our structure offset as it's only arg.
 
-	jmp .memory_map
+	jmp memory_map
 
-.GDT_table:
+GDT_table:
 
 	; The NULL entry
 
@@ -97,12 +96,12 @@ hlt	; <-- needs to be shutdown code
 	db 0x00, 0x9A				; Access byte
 	db 0xCF, 0X00				; Flags and Base
 
-.GDT_LOAD:
+GDT_LOAD:
 
 	GDT_TABLE_SIZE
 	GDT_TABLE_OFFSET
 
-.memory_map:
+memory_map:
 
 ; This section concerns itself with obtaining a physical memory map of the system
 ; using BIOS interrupt 15h. Essentially, the data is written to a list of successive
@@ -135,13 +134,12 @@ hlt	; <-- needs to be shutdown code
 ; di must be incremented by the entry size.
 
 	cmp eax, QUERY_MAP_MAGIC_NUM
-	jne .you_cannot_be_serious		; Default error code, will replace/fix soon.
+	jne you_cannot_be_serious		; Default error code, will replace/fix soon.
 
 	cmp ebx, 0
-	jne .memory_map2			; This will loop us until ebx is set to 0, indicating the end of the map.
-	je .memory_map_print
+	jne memory_map2			; This will loop us until ebx is set to 0, indicating the end of the map.
 
-.memory_map2:
+memory_map2:
 
 	mov eax, QUERY_MAP_MAGIC_NUM
 	add di, 24				; Incrementing our pointer by 24 bytes
@@ -149,24 +147,10 @@ hlt	; <-- needs to be shutdown code
 	int 0x15
 
 	cmp eax, QUERY_MAP_MAGIC_NUM
-	jne .you_cannot_be_serious
+	jne you_cannot_be_serious
 
 	cmp ebx, 0
-	jne .memory_map2
-	je .memory_map_print			; I know it's redundant, sue me. I've got bytes. I've got bytes for days.
+	jne memory_map2
 
-; This code is CURRENTLY BEING TESTED. I don't know if this is the best way to print to screen.
-; This code section MAY CHANGE IN THE FUTURE.
-
-.memory_map_print:
-
-	mov ah, 0x13
-	mov al, 0
-	mov bh, 0
-	mov bl, 0xF
-	mov cx, 24
-	mov dh, 0
-	mov dl, 0
-	mov bp, 0
-	int 0x10				; This should print out the first 24 bytes of our memory map as a string
-						; of ASCII characters.
+cli
+hlt
