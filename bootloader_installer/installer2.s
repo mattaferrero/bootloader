@@ -46,7 +46,7 @@ check_a20:
 	cmp ax, cx
 
 	je you_cannot_be_serious			; IT BELONGS IN A MUSEUM (so do I for that matter).
-	jne GDT_table_code
+	jne set_stack
 
 
 ; Testing to see if we can print stuff out.
@@ -62,6 +62,17 @@ mov ah, 0x0a
 
 int 0x10
 hlt	; <-- needs to be shutdown code
+
+set_stack:
+
+; This section will set our stack segment to 0x3000, and the stack pointer to 
+; offset 0x7000. This is primarily to ensure no accidental overflows since
+; there is no protection for overwriting data in real mode. At this point, 
+; three segments should be in use: 1000,2000,3000. 
+
+	mov ax, 0x3000			; Stack segment defined.	
+	mov ss, ax
+	mov sp, 0x7000			; Stack pointer defined.
 
 GDT_table_code:
 
@@ -114,8 +125,9 @@ memory_map:
 ; bits are the address Type.
 ;
 
-	mov ax, QUERY_MAP_FUNCTION		; Function code to read extended memory past 1 MB
-	xor bx, bx				; MUST be set to 0 initially. A value of 0 indicates the end of the map
+	mov ax, QUERY_MAP_FUNCTION		; Function code to read extended memory past 1 MB.
+	xor bx, bx				; MUST be set to 0 initially. A value of 0 indicates the end of the map.
+	xor si, si				; Our counter for number of map entries.
 	
 ; ES:DI is the Pointer to our Address Range Descriptor Structure which the BIOS will fill in.
 
@@ -127,6 +139,7 @@ memory_map:
 	mov edx, QUERY_MAP_MAGIC_NUM		; BIOS signature 'SMAP'. Verifies caller requests system map.
 
 	int 0x15				; BIOS interrupt Misc. System Services.
+	inc si
 
 ; We have to do a little bit of math for our subsequent calls and looping iterations
 ; to get the full address map. If the first call is successful, eax will be set to 
@@ -137,7 +150,7 @@ memory_map:
 	jne you_cannot_be_serious		; Default error code, will replace/fix soon.
 
 	cmp ebx, 0
-	jne memory_map2			; This will loop us until ebx is set to 0, indicating the end of the map.
+	jne memory_map2				; This will loop us until ebx is set to 0, indicating the end of the map.
 
 memory_map2:
 
@@ -145,6 +158,7 @@ memory_map2:
 	add di, 24				; Incrementing our pointer by 24 bytes
 	mov cx, QUERY_MAP_STRUCT_SIZE
 	int 0x15
+	inc si
 
 	cmp eax, QUERY_MAP_MAGIC_NUM
 	jne you_cannot_be_serious
@@ -152,5 +166,34 @@ memory_map2:
 	cmp ebx, 0
 	jne memory_map2
 
-cli
+protected_on:
+
+; This section switches us to protected mode (finally). The first bit in Control 
+; Register 0 (CR0) must be set to 1 - this is known as the PE flag. Immediately
+; after setting the PE flag, we -must- execute a jmp instruction. This will cause
+; the CPU to flush it's instruction prefetch queue. All segment registers continue
+; to point to the same linear addresses.
+	
+	cli					; We are DISABLING interrupts for the time being until the IDT is set up.
+	mov eax, cr0				; CR0 dictates CPU operations.
+	or eax, 1				; Setting PE bit to on.
+	mov cr0, eax
+	jmp set_selectors			; Performing a jmp is required.
+
+set_selectors:
+
+; Here we are setting our segment registers to their respective offsets in the 
+; GDT. For now, we only have 2 ring 0 entries for Data and Code respectively.
+; Each entry is 8 bytes long.
+
+	mov eax, 0x8				; Data entry offset in GDT
+	mov ds, eax
+	mov es, eax				; For now all other segments will use the Data entry
+	mov fs, eax
+	mov gs, eax
+	mov ss, eax
+
+	mov eax, 0x10				; Code entry offset in GDT
+	mov cs, eax
+
 hlt
